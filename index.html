@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <title>Angular Services & DI</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <link rel="stylesheet" href="//cloud.webtype.com/css/d4767ecb-457a-4677-8761-72f890add836.css">
+  <link rel="stylesheet" href="css/reveal.min.css">
+  <link rel="stylesheet" href="css/theme/knightlab.css" id="theme">
+
+  <!-- For syntax highlighting -->
+  <link rel="stylesheet" href="lib/css/zenburn.css">
+
+  <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+  <script>
+    document.write('<link rel="stylesheet" href="css/print/' + (window.location.search.match(/print-pdf/gi) ? 'pdf' : 'paper') + '.css" type="text/css" media="print">');
+  </script>
+
+  <!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+</head>
+
+<body>
+
+  <div class="reveal">
+
+    <!-- Any section element inside of this container is displayed as a slide -->
+    <div class="slides">
+      <section data-markdown>
+        <script type="text/template">
+          # AngularJS Services & DI
+        </script>
+      </section>
+      <section data-markdown>
+        <script type="text/template">
+          # Types of services:
+          * provider
+          * factory
+          * service
+          * value
+          * constant
+        </script>
+      </section>
+
+      <!-- Example of nested vertical slides -->
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Provider()
+          </script>
+        </section>
+        <section>
+          <div>
+            A provider is the fundamental part of an AngularJS service
+          </div>
+          <div class="fragment">
+            All AngularJS services (except value) have a provider
+          </div>
+          <div class="fragment">
+            A factory, service & constant are just wrappers around the Provider
+          </div>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            Providers are registered with the '$provide' service of AngularJS or with angular.module('app', []).provider
+
+            ```js
+              // angular.module('app', []).provider('books', function() {
+              $provide.provider('books', function() {
+                // MUST have a $get property
+                this.$get = function() {
+                  var appName = 'Book Logger';
+                  var appDesc = 'Track which books you read.';
+
+                  return {
+                    appName: appName,
+                    appDesc: appDesc
+                  }
+                };
+              });
+            ```
+
+            AngularJS uses the $get function to register your service, and the return value of that function are the accessible properties/methods on your service
+          </script>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            You can now do this:
+
+            ```js
+              angular.module('app', [])
+                .controller('BooksController', function(books) {
+                  console.log(books.appName);
+                })
+            ```
+          </script>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            Providers can be configured
+
+            ```js
+              angular.module('app', []).provider('books', function() {
+                this.$get = function() {
+                  var appName = 'Book Logger';
+                  var appDesc = 'Track which books you read.';
+
+                  var version = '1.0';
+                  
+                  if(includeVersionInTitle) {
+                    appName += ' ' + version;
+                  }
+
+                  return {
+                    appName: appName,
+                    appDesc: appDesc
+                  }
+                };
+
+                var includeVersionInTitle = false;
+                this.setIncludeVersionInTitle = function (value) {
+                  includeVersionInTitle = value;
+                }
+              });
+            ```
+
+            ```js
+              angular.module('app').config(function(booksProvider) {
+                booksProvider.setIncludeVersionInTitle(true);
+              });
+            ```
+          </script>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            We configure a lot of providers: core => config
+            
+            We also have providers in our codebase: blocks => router => router-helper.provider
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Factory()
+          </script>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            A factory is simply a wrapper around a provider!
+
+            Source code:
+            ```js
+              function factory(name, factoryFn, enforce) {
+                return provider(name, {
+                  $get: enforce !== false ? enforceReturnValue(name, factoryFn): factoryFn
+                });
+              }
+            ```
+
+            Calls the provider function and assigns the value you pass to the factory function as the value of the get property on the provider. Enforce is to make sure it passes an object
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Service()
+          </script>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            A service is a wrapper around a factory!
+
+            Source code:
+            ```js
+              function service(name, constructor) {
+                return factory(name, ['$injector', function($injector) {
+                  return $injector.instantiate(constructor);
+                }]);
+              }
+            ```
+
+            The function you call to the service function is created as a constructor, thus "new" is called by the $injector.instantiate
+
+            "New" can be useful for inheritance, we don't really need services and could just use factories all over the place
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Value()
+          </script>
+        </section>
+        <section>
+          <div>
+            Value is short syntax for a factory
+
+            You use it when you don't need to inject any value through dependency injection
+
+          </div>
+          <div class="fragment">
+            Values can't be injected in angular.module().config(...) but can be intercepted by decorators (explained later)
+          </div>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Constant()
+          </script>
+        </section>
+        <section>
+          <div>Registers a service directly with the Injector, it does NOT create a provider</div>
+
+          <div>Can NOT be intercepted by decorators</div>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Dependency injection annotations
+          </script>
+        </section>
+        <section>
+          <div>Informs the $injector what to inject into function arguments</div>
+          <div>Used to support minification of the JavaScript</div>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            3 ways to help the $injector:
+
+            * Use the same argument names as the services that were registered
+             
+             ```js
+               function BooksController(logger) // works, unminified code
+               function a(b) // minified, breaks: angular doesn't know what "b" is
+             ```
+
+            * $inject
+
+             ```js
+               a.$inject = ['logger'];
+               function a(b)
+             ```
+
+            * Inline array notation
+
+             ```js
+               resolve: {
+                 userExists: ['authService', function(b) {
+                    ...
+                 }];
+               }
+             ```
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <section data-markdown>
+          <script type="text/template">
+            # Decorators
+          </script>
+        </section>
+        <section>
+          <div>Decorators allow you to modify behavior from existing services (usually third party)</div>
+          <div class="fragment">Decorator pattern: Design pattern that allows behavior to be added to an individual object, either statically or dynamically</div>
+        </section>
+        <section data-markdown>
+          <script type="text/template">
+            Example: decorate the AngularJS [$log](https://docs.angularjs.org/api/ng/service/$log) service to always log errors in uppercase
+
+            ```js
+              angular.module('app', []).config('$provide', function($provide){
+                $provide.decorator('$log', logDecorator);
+              });
+
+              function logDecorator($delegate) {
+                return {
+                  error: function(message) {
+                    $delegate.log(message.toUpperCase());
+                  }
+                }
+              }
+            ```
+
+            We do this as well! exception-handler.provider!
+          </script>
+        </section>
+      </section>
+
+      <section>
+        <h1>THE END</h1>
+        <h3>Questions?</h3>
+      </section>
+
+    </div>
+
+  </div>
+
+  <script src="lib/js/head.min.js"></script>
+  <script src="js/reveal.min.js"></script>
+
+  <script>
+          // Full list of configuration options available here:
+          // https://github.com/hakimel/reveal.js#configuration
+          Reveal.initialize({
+            controls: true,
+            progress: true,
+            history: true,
+            center: true,
+
+            theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+            transition: Reveal.getQueryHash().transition || 'linear', // default/cube/page/concave/zoom/linear/fade/none
+
+            // Parallax scrolling
+            // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+            // parallaxBackgroundSize: '2100px 900px',
+
+            // Optional libraries used to extend on reveal.js
+            dependencies: [
+              { src: 'lib/js/classList.js', condition: function () { return !document.body.classList; } },
+              { src: 'plugin/markdown/marked.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+              { src: 'plugin/markdown/markdown.js', condition: function () { return !!document.querySelector('[data-markdown]'); } },
+              { src: 'plugin/highlight/highlight.js', async: true, callback: function () { hljs.initHighlightingOnLoad(); } },
+              { src: 'plugin/zoom-js/zoom.js', async: true, condition: function () { return !!document.body.classList; } },
+              { src: 'plugin/notes/notes.js', async: true, condition: function () { return !!document.body.classList; } }
+            ]
+          });
+  </script>
+
+</body>
+
+</html>
